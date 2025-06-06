@@ -1,15 +1,15 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /
 
-    # If the requested file/folder does not exist
+    # Route all API calls to api.php
+    RewriteRule ^api/(.*)$ api.php [QSA,L]
+
+    # For all other requests, if not a real file or directory,
+    # route them to index.html for the frontend router to handle.
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
-
-    # And the request URI starts with /api/
-    RewriteCond %{REQUEST_URI} ^/api/ [NC]
-    
-    # Then rewrite the request to api.php
-    RewriteRule ^(.*)$ api.php [L,QSA]
+    RewriteRule ^(.*)$ index.html [QSA,L]
 </IfModule>
 
 # -----------------------------
