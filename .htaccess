@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Handle requests for the root of the site, forward to public/index.html
+    RewriteRule ^$ public/ [L]
+
+    # For all other requests, if the file/directory doesn't exist in the root,
+    # forward the request to the public directory to be handled there.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
+</IfModule> 
