@@ -1,31 +1,33 @@
 <?php
 // public/api.php
-require_once __DIR__ . '/../config/config.php'; 
 
-if (empty($_SESSION['authenticated'])) {
-  header('Location: /index.html?redirect=/api.php');
-  exit;
+// The entire application now runs from within the /public directory.
+// We can use a simple relative path to include the configuration.
+require_once __DIR__ . '/../config/config.php';
+
+// This script acts as a simple router for API calls.
+// It determines the controller and method from the URL and executes it.
+
+$requestUri = $_SERVER['REQUEST_URI'];
+$basePath = '/api/';
+$requestPath = substr($requestUri, strlen($basePath));
+$parts = explode('/', $requestPath);
+
+$controllerName = ucfirst(strtolower($parts[0] ?? '')) . 'Controller';
+$methodName = strtolower($parts[1] ?? '');
+
+$controllerFile = __DIR__ . '/../src/controllers/' . $controllerName . '.php';
+
+if (file_exists($controllerFile)) {
+    require_once $controllerFile;
+    if (class_exists($controllerName) && method_exists($controllerName, $methodName)) {
+        $controller = new $controllerName();
+        $controller->$methodName();
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'API endpoint not found.']);
+    }
+} else {
+    http_response_code(404);
+    echo json_encode(['error' => 'API controller not found.']);
 }
-
-if (isset($_GET['spec'])) {
-  header('Content-Type: application/json');
-  readfile(__DIR__ . '/../openapi.json.dist');
-  exit;
-}
-
-?><!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>FileRise API Docs</title>
-  <script defer src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"
-          integrity="sha384-4vOjrBu7SuDWXcAw1qFznVLA/sKL+0l4nn+J1HY8w7cpa6twQEYuh4b0Cwuo7CyX"
-          crossorigin="anonymous"></script>
-  <script defer src="/js/redoc-init.js"></script>
-</head>
-<body>
-  <redoc spec-url="api.php?spec=1"></redoc>
-  <div id="redoc-container"></div>
-</body>
-</html>
