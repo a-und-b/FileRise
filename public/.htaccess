@@ -1,3 +1,17 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # If the requested file/folder does not exist
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # And the request URI starts with /api/
+    RewriteCond %{REQUEST_URI} ^/api/ [NC]
+    
+    # Then rewrite the request to api.php
+    RewriteRule ^(.*)$ api.php [L,QSA]
+</IfModule>
+
 # -----------------------------
 # 1) Prevent directory listings
 # -----------------------------
