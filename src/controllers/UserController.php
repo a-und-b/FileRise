@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config/config.php';
 require_once PROJECT_ROOT . '/src/models/UserModel.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class UserController
 {
@@ -96,7 +97,7 @@ class UserController
         }
 
         // 2) Determine setup mode (first-ever admin creation)
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         $isSetup   = (isset($_GET['setup']) && $_GET['setup'] === '1');
         $setupMode = false;
         if (
@@ -929,9 +930,9 @@ class UserController
                 exit;
             }
 
-            // Issue “remember me” token if requested
+            // Issue "remember me" token if requested
             if ($rememberMe) {
-                $tokFile = USERS_DIR . 'persistent_tokens.json';
+                $tokFile = PathResolver::resolve('users_dir') . 'persistent_tokens.json';
                 $token = bin2hex(random_bytes(32));
                 $expiry = time() + 30 * 24 * 60 * 60;
                 $all = [];
@@ -1062,7 +1063,7 @@ class UserController
         }
 
         // 5) Destination under public/uploads/profile_pics
-        $uploadDir = UPLOAD_DIR . '/profile_pics';
+        $uploadDir = PathResolver::resolve('uploads') . '/profile_pics';
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Cannot create upload folder']);
@@ -1081,7 +1082,7 @@ class UserController
         }
 
         // 7) Build public URL
-        $url = '/uploads/profile_pics/' . $filename;
+        $url = PathResolver::getPublicUrl('uploads') . '/profile_pics/' . $filename;
 
         // ─── THIS IS WHERE WE PERSIST INTO users.txt ───
         $result = UserModel::setProfilePicture($_SESSION['username'], $url);

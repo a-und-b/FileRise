@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once PROJECT_ROOT . '/src/models/AuthModel.php';
 require_once PROJECT_ROOT . '/vendor/autoload.php';
 require_once PROJECT_ROOT . '/src/models/AdminModel.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 use RobThree\Auth\Algorithm;
 use RobThree\Auth\Providers\Qr\GoogleChartsQrCodeProvider;
@@ -121,7 +122,7 @@ class AuthController
 
                     // check if this user has a TOTP secret
                     $totp_secret = null;
-                    $usersFile = USERS_DIR . USERS_FILE;
+                    $usersFile = PathResolver::resolve('users_db');
                     if (file_exists($usersFile)) {
                         foreach (file($usersFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
                             $parts = explode(':', trim($line));
@@ -176,7 +177,7 @@ class AuthController
 
         // rate‑limit
         $ip           = $_SERVER['REMOTE_ADDR'];
-        $attemptsFile = USERS_DIR . 'failed_logins.json';
+        $attemptsFile = PathResolver::resolve('users_dir') . 'failed_logins.json';
         $failed       = AuthModel::loadFailedAttempts($attemptsFile);
         if (
             isset($failed[$ip]) &&
@@ -236,7 +237,7 @@ class AuthController
 
         // remember‑me
         if ($rememberMe) {
-            $tokFile = USERS_DIR . 'persistent_tokens.json';
+            $tokFile = PathResolver::resolve('users_dir') . 'persistent_tokens.json';
             $token   = bin2hex(random_bytes(32));
             $expiry  = time() + 30 * 24 * 60 * 60;
             $all     = [];
@@ -361,7 +362,7 @@ class AuthController
 
 
                 // TOTP enabled? (same logic as below)
-                $usersFile = USERS_DIR . USERS_FILE;
+                $usersFile = PathResolver::resolve('users_db');
                 $totp = false;
                 if (file_exists($usersFile)) {
                     foreach (file($usersFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
@@ -387,7 +388,7 @@ class AuthController
             }
         }
 
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         // 2) Setup mode?
         if (!file_exists($usersFile) || trim(file_get_contents($usersFile)) === '') {
@@ -585,7 +586,7 @@ class AuthController
         // Remove the "remember_me_token" from persistent tokens.
         if (isset($_COOKIE['remember_me_token'])) {
             $token = $_COOKIE['remember_me_token'];
-            $persistentTokensFile = USERS_DIR . 'persistent_tokens.json';
+            $persistentTokensFile = PathResolver::resolve('users_dir') . 'persistent_tokens.json';
             if (file_exists($persistentTokensFile)) {
                 $encryptedContent = file_get_contents($persistentTokensFile);
                 $decryptedContent = decryptData($encryptedContent, $GLOBALS['encryptionKey']);

@@ -1,7 +1,7 @@
 <?php
 // src/models/userModel.php
 
-require_once PROJECT_ROOT . '/config/config.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class userModel
 {
@@ -12,7 +12,7 @@ class userModel
      */
     public static function getAllUsers()
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         $users = [];
         if (file_exists($usersFile)) {
             $lines = file($usersFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -40,7 +40,7 @@ class userModel
      */
     public static function addUser($username, $password, $isAdmin, $setupMode)
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         // Ensure users.txt exists.
         if (!file_exists($usersFile)) {
@@ -80,7 +80,7 @@ class userModel
      */
     public static function removeUser($usernameToRemove)
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         if (!file_exists($usersFile)) {
             return ["error" => "Users file not found"];
@@ -111,7 +111,7 @@ class userModel
         file_put_contents($usersFile, implode(PHP_EOL, $newUsers) . PHP_EOL);
 
         // Update the userPermissions.json file.
-        $permissionsFile = USERS_DIR . "userPermissions.json";
+        $permissionsFile = PathResolver::resolve('users_dir') . "userPermissions.json";
         if (file_exists($permissionsFile)) {
             $permissionsJson = file_get_contents($permissionsFile);
             $permissionsArray = json_decode($permissionsJson, true);
@@ -134,7 +134,7 @@ class userModel
     public static function getUserPermissions()
     {
         global $encryptionKey;
-        $permissionsFile = USERS_DIR . "userPermissions.json";
+        $permissionsFile = PathResolver::resolve('users_dir') . "userPermissions.json";
         $permissionsArray = [];
 
         // Load permissions if the file exists.
@@ -179,7 +179,7 @@ class userModel
     public static function updateUserPermissions($permissions)
     {
         global $encryptionKey;
-        $permissionsFile = USERS_DIR . "userPermissions.json";
+        $permissionsFile = PathResolver::resolve('users_dir') . "userPermissions.json";
         $existingPermissions = [];
 
         // Load existing permissions if available and decrypt.
@@ -193,7 +193,7 @@ class userModel
         }
 
         // Load user roles from the users file.
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         $userRoles = [];
         if (file_exists($usersFile)) {
             $lines = file($usersFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -251,7 +251,7 @@ class userModel
      */
     public static function changePassword($username, $oldPassword, $newPassword)
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         if (!file_exists($usersFile)) {
             return ["error" => "Users file not found"];
@@ -315,7 +315,7 @@ class userModel
      */
     public static function updateUserPanel($username, $totp_enabled)
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         if (!file_exists($usersFile)) {
             return ["error" => "Users file not found"];
@@ -367,7 +367,7 @@ class userModel
     public static function disableTOTPSecret($username)
     {
         global $encryptionKey; // In case it's used in this model context.
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         if (!file_exists($usersFile)) {
             return false;
         }
@@ -410,7 +410,7 @@ class userModel
     public static function recoverTOTP($userId, $recoveryCode)
     {
         // --- Rate‑limit recovery attempts ---
-        $attemptsFile = rtrim(USERS_DIR, '/\\') . '/recovery_attempts.json';
+        $attemptsFile = rtrim(PathResolver::resolve('users_dir'), '/\\') . '/recovery_attempts.json';
         $attempts = is_file($attemptsFile) ? json_decode(file_get_contents($attemptsFile), true) : [];
         $key = $_SERVER['REMOTE_ADDR'] . '|' . $userId;
         $now = time();
@@ -425,7 +425,7 @@ class userModel
         }
 
         // --- Load user metadata file ---
-        $userFile = rtrim(USERS_DIR, '/\\') . DIRECTORY_SEPARATOR . $userId . '.json';
+        $userFile = rtrim(PathResolver::resolve('users_dir'), '/\\') . DIRECTORY_SEPARATOR . $userId . '.json';
         if (!file_exists($userFile)) {
             return ['status' => 'error', 'message' => 'User not found'];
         }
@@ -494,7 +494,7 @@ class userModel
     public static function saveTOTPRecoveryCode($userId)
     {
         // Determine the user file path.
-        $userFile = rtrim(USERS_DIR, '/\\') . DIRECTORY_SEPARATOR . $userId . '.json';
+        $userFile = rtrim(PathResolver::resolve('users_dir'), '/\\') . DIRECTORY_SEPARATOR . $userId . '.json';
 
         // Ensure the file exists; if not, create it with default data.
         if (!file_exists($userFile)) {
@@ -542,7 +542,7 @@ class userModel
     public static function setupTOTP($username)
     {
         global $encryptionKey;
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
 
         if (!file_exists($usersFile)) {
             return ['error' => 'Users file not found'];
@@ -571,7 +571,7 @@ class userModel
             $totpSecret = $tfa->createSecret();
             $encryptedSecret = encryptData($totpSecret, $encryptionKey);
 
-            // Update the user’s line with the new encrypted secret.
+            // Update the user's line with the new encrypted secret.
             $newLines = [];
             foreach ($lines as $line) {
                 $parts = explode(':', trim($line));
@@ -591,7 +591,7 @@ class userModel
 
         // Determine the OTPAuth URL.
         // Try to load a global OTPAuth URL template from admin configuration.
-        $adminConfigFile = USERS_DIR . 'adminConfig.json';
+        $adminConfigFile = PathResolver::resolve('users_dir') . 'adminConfig.json';
         $globalOtpauthUrl = "";
         if (file_exists($adminConfigFile)) {
             $encryptedContent = file_get_contents($adminConfigFile);
@@ -634,7 +634,7 @@ class userModel
     public static function getTOTPSecret($username)
     {
         global $encryptionKey;
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         if (!file_exists($usersFile)) {
             return null;
         }
@@ -657,7 +657,7 @@ class userModel
      */
     public static function getUserRole($username)
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         if (!file_exists($usersFile)) {
             return null;
         }
@@ -672,7 +672,7 @@ class userModel
 
     public static function getUser(string $username): array
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         if (! file_exists($usersFile)) {
             return [];
         }
@@ -715,7 +715,7 @@ class userModel
      */
     public static function setProfilePicture(string $username, string $url): array
     {
-        $usersFile = USERS_DIR . USERS_FILE;
+        $usersFile = PathResolver::resolve('users_db');
         if (! file_exists($usersFile)) {
             return ['success' => false, 'error' => 'Users file not found'];
         }

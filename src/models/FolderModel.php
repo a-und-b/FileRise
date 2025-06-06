@@ -1,7 +1,7 @@
 <?php
 // src/models/FolderModel.php
 
-require_once PROJECT_ROOT . '/config/config.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class FolderModel
 {
@@ -26,7 +26,7 @@ class FolderModel
             return ["error" => "Invalid parent folder name."];
         }
 
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         if ($parent !== "" && strtolower($parent) !== "root") {
             $fullPath = $baseDir . DIRECTORY_SEPARATOR . $parent . DIRECTORY_SEPARATOR . $folderName;
             $relativePath = $parent . "/" . $folderName;
@@ -61,10 +61,11 @@ class FolderModel
      */
     private static function getMetadataFilePath(string $folder): string
     {
+        $metaDir = PathResolver::resolve('metadata');
         if (strtolower($folder) === 'root' || trim($folder) === '') {
-            return META_DIR . "root_metadata.json";
+            return $metaDir . "root_metadata.json";
         }
-        return META_DIR . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
+        return $metaDir . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
     }
 
     /**
@@ -86,7 +87,7 @@ class FolderModel
         }
 
         // Build the full folder path.
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         $folderPath = $baseDir . DIRECTORY_SEPARATOR . $folder;
 
         // Check if the folder exists and is a directory.
@@ -132,7 +133,7 @@ class FolderModel
         }
 
         // Build the full folder paths.
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         $oldPath = $baseDir . DIRECTORY_SEPARATOR . $oldFolder;
         $newPath = $baseDir . DIRECTORY_SEPARATOR . $newFolder;
 
@@ -157,11 +158,12 @@ class FolderModel
             // Update metadata: Rename all metadata files that have the old folder prefix.
             $oldPrefix = str_replace(['/', '\\', ' '], '-', $oldFolder);
             $newPrefix = str_replace(['/', '\\', ' '], '-', $newFolder);
-            $metadataFiles = glob(META_DIR . $oldPrefix . '*_metadata.json');
+            $metaDir = PathResolver::resolve('metadata');
+            $metadataFiles = glob($metaDir . $oldPrefix . '*_metadata.json');
             foreach ($metadataFiles as $oldMetaFile) {
                 $baseName = basename($oldMetaFile);
                 $newBaseName = preg_replace('/^' . preg_quote($oldPrefix, '/') . '/', $newPrefix, $baseName);
-                $newMetaFile = META_DIR . $newBaseName;
+                $newMetaFile = $metaDir . $newBaseName;
                 rename($oldMetaFile, $newMetaFile);
             }
             return ["success" => true];
@@ -207,7 +209,7 @@ class FolderModel
      */
     public static function getFolderList(): array
     {
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         $folderInfoList = [];
 
         // Process the "root" folder.
@@ -256,7 +258,7 @@ class FolderModel
      */
     public static function getShareFolderRecord(string $token): ?array
     {
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return null;
         }
@@ -286,7 +288,7 @@ class FolderModel
     public static function getSharedFolderData(string $token, ?string $providedPass, int $page = 1, int $itemsPerPage = 10): array
     {
         // Load the share folder record.
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return ["error" => "Share link not found."];
         }
@@ -308,7 +310,7 @@ class FolderModel
         }
         // Determine the shared folder.
         $folder = trim($record['folder'], "/\\ ");
-        $baseDir = realpath(UPLOAD_DIR);
+        $baseDir = realpath(PathResolver::resolve('uploads'));
         if ($baseDir === false) {
             return ["error" => "Uploads directory not configured correctly."];
         }
@@ -319,7 +321,7 @@ class FolderModel
             $folderPath = $baseDir;
         }
         $realFolderPath = realpath($folderPath);
-        $uploadDirReal = realpath(UPLOAD_DIR);
+        $uploadDirReal = realpath(PathResolver::resolve('uploads'));
         if ($realFolderPath === false || strpos($realFolderPath, $uploadDirReal) !== 0 || !is_dir($realFolderPath)) {
             return ["error" => "Shared folder not found."];
         }
@@ -374,7 +376,7 @@ class FolderModel
         $hashedPassword = $password !== "" ? password_hash($password, PASSWORD_DEFAULT) : "";
 
         // Load existing
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         $links = file_exists($shareFile)
             ? json_decode(file_get_contents($shareFile), true) ?? []
             : [];
@@ -422,7 +424,7 @@ class FolderModel
     public static function getSharedFileInfo(string $token, string $file): array
     {
         // Load the share folder record.
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return ["error" => "Share link not found."];
         }
@@ -439,7 +441,7 @@ class FolderModel
 
         // Determine the shared folder.
         $folder = trim($record['folder'], "/\\ ");
-        $baseDir = realpath(UPLOAD_DIR);
+        $baseDir = realpath(PathResolver::resolve('uploads'));
         if ($baseDir === false) {
             return ["error" => "Uploads directory not configured correctly."];
         }
@@ -449,7 +451,7 @@ class FolderModel
             $folderPath = $baseDir;
         }
         $realFolderPath = realpath($folderPath);
-        $uploadDirReal = realpath(UPLOAD_DIR);
+        $uploadDirReal = realpath(PathResolver::resolve('uploads'));
         if ($realFolderPath === false || strpos($realFolderPath, $uploadDirReal) !== 0 || !is_dir($realFolderPath)) {
             return ["error" => "Shared folder not found."];
         }
@@ -488,7 +490,7 @@ class FolderModel
         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx', 'mp4', 'webm', 'mp3', 'mkv'];
 
         // Load the share folder record.
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return ["error" => "Share record not found."];
         }
@@ -525,14 +527,14 @@ class FolderModel
 
         // Determine the target folder from the share record.
         $folderName = trim($record['folder'], "/\\");
-        $targetFolder = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $targetFolder = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR;
         if (!empty($folderName) && strtolower($folderName) !== 'root') {
             $targetFolder .= $folderName;
         }
 
         // Verify target folder exists.
         $realTargetFolder = realpath($targetFolder);
-        $uploadDirReal = realpath(UPLOAD_DIR);
+        $uploadDirReal = realpath(PathResolver::resolve('uploads'));
         if ($realTargetFolder === false || strpos($realTargetFolder, $uploadDirReal) !== 0 || !is_dir($realTargetFolder)) {
             return ["error" => "Shared folder not found."];
         }
@@ -550,7 +552,7 @@ class FolderModel
         // Determine metadata file.
         $metadataKey = (empty($folderName) || strtolower($folderName) === "root") ? "root" : $folderName;
         $metadataFileName = str_replace(['/', '\\', ' '], '-', $metadataKey) . '_metadata.json';
-        $metadataFile = META_DIR . $metadataFileName;
+        $metadataFile = PathResolver::resolve('metadata') . $metadataFileName;
         $metadataCollection = [];
         if (file_exists($metadataFile)) {
             $data = file_get_contents($metadataFile);
@@ -573,7 +575,7 @@ class FolderModel
 
     public static function getAllShareFolderLinks(): array
     {
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return [];
         }
@@ -583,7 +585,7 @@ class FolderModel
 
     public static function deleteShareFolderLink(string $token): bool
     {
-        $shareFile = META_DIR . "share_folder_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_folder_links.json";
         if (!file_exists($shareFile)) {
             return false;
         }

@@ -9,7 +9,7 @@ echo "=== Shared Hosting Config Test ===\n\n";
 putenv('FILERISE_SHARED_HOSTING=true');
 
 // Include the new config
-require_once __DIR__ . '/../config/config.shared-hosting.php';
+require_once __DIR__ . '/../config/config.php';
 
 echo "1. Constants Check:\n";
 echo "   PROJECT_ROOT: " . PROJECT_ROOT . "\n";

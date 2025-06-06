@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config/config.php';
 require_once PROJECT_ROOT . '/src/models/FileModel.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class FileController
 {
@@ -978,14 +979,14 @@ class FileController
         // Build file path securely.
         $folder = trim($record['folder'], "/\\ ");
         $file = $record['file'];
-        $filePath = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $filePath = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR;
         if (!empty($folder) && strtolower($folder) !== 'root') {
             $filePath .= $folder . DIRECTORY_SEPARATOR;
         }
         $filePath .= $file;
 
         $realFilePath = realpath($filePath);
-        $uploadDirReal = realpath(UPLOAD_DIR);
+        $uploadDirReal = realpath(PathResolver::resolve('uploads'));
         if ($realFilePath === false || strpos($realFilePath, $uploadDirReal) !== 0) {
             http_response_code(404);
             header('Content-Type: application/json');
@@ -1325,7 +1326,7 @@ class FileController
         if (isset($data['deleteAll']) && $data['deleteAll'] === true) {
             // In this case, we need to delete all trash items.
             // Load current trash metadata.
-            $trashDir = rtrim(TRASH_DIR, '/\\') . DIRECTORY_SEPARATOR;
+            $trashDir = rtrim(PathResolver::resolve('trash'), '/\\') . DIRECTORY_SEPARATOR;
             $shareFile = $trashDir . "trash.json";
             if (file_exists($shareFile)) {
                 $json = file_get_contents($shareFile);

@@ -1,7 +1,7 @@
 <?php
 // src/models/UploadModel.php
 
-require_once PROJECT_ROOT . '/config/config.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class UploadModel {
     /**
@@ -17,9 +17,9 @@ class UploadModel {
             $chunkNumber = intval($post['resumableChunkNumber']);
             $resumableIdentifier = $post['resumableIdentifier'] ?? '';
             $folder = isset($post['folder']) ? trim($post['folder']) : 'root';
-            $baseUploadDir = UPLOAD_DIR;
+            $baseUploadDir = PathResolver::resolve('uploads');
             if ($folder !== 'root') {
-                $baseUploadDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
+                $baseUploadDir = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
             }
             $tempDir = $baseUploadDir . 'resumable_' . $resumableIdentifier . DIRECTORY_SEPARATOR;
             $chunkFile = $tempDir . $chunkNumber;
@@ -43,9 +43,9 @@ class UploadModel {
                 return ["error" => "Invalid folder name"];
             }
             
-            $baseUploadDir = UPLOAD_DIR;
+            $baseUploadDir = PathResolver::resolve('uploads');
             if ($folder !== 'root') {
-                $baseUploadDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
+                $baseUploadDir = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
             }
             if (!is_dir($baseUploadDir) && !mkdir($baseUploadDir, 0775, true)) {
                 return ["error" => "Failed to create upload directory"];
@@ -103,7 +103,7 @@ class UploadModel {
             $relativeFolder = $folder;
             $metadataKey = ($relativeFolder === '' || strtolower($relativeFolder) === 'root') ? "root" : $relativeFolder;
             $metadataFileName = str_replace(['/', '\\', ' '], '-', $metadataKey) . '_metadata.json';
-            $metadataFile = META_DIR . $metadataFileName;
+            $metadataFile = PathResolver::resolve('metadata') . $metadataFileName;
             $uploadedDate = date(DATE_TIME_FORMAT);
             $uploader = $_SESSION['username'] ?? "Unknown";
             $metadataCollection = file_exists($metadataFile) ? json_decode(file_get_contents($metadataFile), true) : [];
@@ -140,9 +140,9 @@ class UploadModel {
                 return ["error" => "Invalid folder name"];
             }
             
-            $baseUploadDir = UPLOAD_DIR;
+            $baseUploadDir = PathResolver::resolve('uploads');
             if ($folder !== 'root') {
-                $baseUploadDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
+                $baseUploadDir = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $folder . DIRECTORY_SEPARATOR;
             }
             if (!is_dir($baseUploadDir) && !mkdir($baseUploadDir, 0775, true)) {
                 return ["error" => "Failed to create upload directory"];
@@ -165,7 +165,7 @@ class UploadModel {
                 if (!empty($relativePath)) {
                     $subDir = dirname($relativePath);
                     if ($subDir !== '.' && $subDir !== '') {
-                        $uploadDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subDir) . DIRECTORY_SEPARATOR;
+                        $uploadDir = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subDir) . DIRECTORY_SEPARATOR;
                     }
                     $safeFileName = basename($relativePath);
                 }
@@ -177,7 +177,7 @@ class UploadModel {
                     $folderPath = $folder;
                     $metadataKey = ($folderPath === '' || strtolower($folderPath) === 'root') ? "root" : $folderPath;
                     $metadataFileName = str_replace(['/', '\\', ' '], '-', $metadataKey) . '_metadata.json';
-                    $metadataFile = META_DIR . $metadataFileName;
+                    $metadataFile = PathResolver::resolve('metadata') . $metadataFileName;
                     if (!isset($metadataCollection[$metadataKey])) {
                         $metadataCollection[$metadataKey] = file_exists($metadataFile) ? json_decode(file_get_contents($metadataFile), true) : [];
                         if (!is_array($metadataCollection[$metadataKey])) {
@@ -202,7 +202,7 @@ class UploadModel {
             foreach ($metadataCollection as $folderKey => $data) {
                 if ($metadataChanged[$folderKey]) {
                     $metadataFileName = str_replace(['/', '\\', ' '], '-', $folderKey) . '_metadata.json';
-                    $metadataFile = META_DIR . $metadataFileName;
+                    $metadataFile = PathResolver::resolve('metadata') . $metadataFileName;
                     file_put_contents($metadataFile, json_encode($data, JSON_PRETTY_PRINT));
                 }
             }
@@ -250,7 +250,7 @@ class UploadModel {
             return ["error" => "Invalid folder name"];
         }
         
-        $tempDir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $folder;
+        $tempDir = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $folder;
         if (!is_dir($tempDir)) {
             return ["success" => true, "message" => "Temporary folder already removed."];
         }

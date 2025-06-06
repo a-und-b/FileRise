@@ -244,5 +244,142 @@ function safeInclude(string $file): string {
     return $file;
 }
 
+/**
+ * Initialize session handling and auto-login logic
+ */
+function initializeSession(): void {
+    global $encryptionKey;
+
+    // Determine HTTPS usage
+    $envSecure = getenv('SECURE');
+    $secure = ($envSecure !== false)
+        ? filter_var($envSecure, FILTER_VALIDATE_BOOLEAN)
+        : (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+
+    // Choose session lifetime
+    $defaultSession = 7200; // 2 hours
+    $persistentDays = 30 * 24 * 60 * 60; // 30 days
+    $sessionLifetime = isset($_COOKIE['remember_me_token']) ? $persistentDays : $defaultSession;
+
+    session_set_cookie_params([
+        'lifetime' => $sessionLifetime,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
+
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    // CSRF token
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    // Auto-login via persistent token
+    if (empty($_SESSION["authenticated"]) && !empty($_COOKIE['remember_me_token'])) {
+        $tokFile = PathResolver::getDataPath('users') . 'persistent_tokens.json';
+        if (file_exists($tokFile)) {
+            $enc = file_get_contents($tokFile);
+            $dec = decryptData($enc, $encryptionKey);
+            $tokens = json_decode($dec, true) ?: [];
+            $token = $_COOKIE['remember_me_token'];
+
+            if (!empty($tokens[$token]) && $tokens[$token]['expiry'] >= time()) {
+                $data = $tokens[$token];
+                $_SESSION["authenticated"] = true;
+                $_SESSION["username"]      = $data["username"];
+                $_SESSION["folderOnly"]    = loadUserPermissions($data["username"]);
+                $_SESSION["isAdmin"]       = !empty($data["isAdmin"]);
+            } elseif (!empty($tokens[$token])) {
+                unset($tokens[$token]);
+                file_put_contents($tokFile, encryptData(json_encode($tokens, JSON_PRETTY_PRINT), $encryptionKey), LOCK_EX);
+                setcookie('remember_me_token', '', time() - 3600, '/', '', $secure, true);
+            }
+        }
+    }
+
+    // Proxy-only auto-login
+    $adminConfigFile = PathResolver::getDataPath('users') . 'adminConfig.json';
+    $cfgAuthBypass = false;
+    $cfgAuthHeader = 'HTTP_X_REMOTE_USER';
+
+    if (file_exists($adminConfigFile)) {
+        $encrypted = file_get_contents($adminConfigFile);
+        $decrypted = decryptData($encrypted, $encryptionKey);
+        $adminCfg  = json_decode($decrypted, true) ?: [];
+        $loginOpts = $adminCfg['loginOptions'] ?? [];
+        $cfgAuthBypass = !empty($loginOpts['authBypass']);
+        $hdr = trim($loginOpts['authHeaderName'] ?? 'X-Remote-User');
+        $cfgAuthHeader = 'HTTP_' . strtoupper(str_replace('-', '_', $hdr));
+    }
+
+    if ($cfgAuthBypass && !empty($_SERVER[$cfgAuthHeader])) {
+        if (empty($_SESSION['authenticated'])) {
+            session_regenerate_id(true);
+        }
+        $username = $_SERVER[$cfgAuthHeader];
+        $_SESSION['authenticated'] = true;
+        $_SESSION['username']      = $username;
+        require_once PROJECT_ROOT . '/src/models/AuthModel.php';
+        $_SESSION['isAdmin'] = (\AuthModel::getUserRole($username) === '1');
+        $perms = loadUserPermissions($username) ?: [];
+        $_SESSION['folderOnly']    = $perms['folderOnly']    ?? false;
+        $_SESSION['readOnly']      = $perms['readOnly']      ?? false;
+        $_SESSION['disableUpload'] = $perms['disableUpload'] ?? false;
+    }
+}
+
+// ============== HELPER FUNCTIONS ==============
+
+/**
+ * Encryption helper to encrypt data.
+ */
+function encryptData($data, $encryptionKey)
+{
+    $cipher = 'AES-256-CBC';
+    $ivlen  = openssl_cipher_iv_length($cipher);
+    $iv     = openssl_random_pseudo_bytes($ivlen);
+    $ct     = openssl_encrypt($data, $cipher, $encryptionKey, OPENSSL_RAW_DATA, $iv);
+    return base64_encode($iv . $ct);
+}
+
+/**
+ * Encryption helper to decrypt data.
+ */
+function decryptData($encryptedData, $encryptionKey)
+{
+    $cipher = 'AES-256-CBC';
+    $data   = base64_decode($encryptedData);
+    $ivlen  = openssl_cipher_iv_length($cipher);
+    $iv     = substr($data, 0, $ivlen);
+    $ct     = substr($data, $ivlen);
+    return openssl_decrypt($ct, $cipher, $encryptionKey, OPENSSL_RAW_DATA, $iv);
+}
+
+/**
+ * Helper to load JSON permissions.
+ */
+function loadUserPermissions($username)
+{
+    global $encryptionKey;
+    $permissionsFile = PathResolver::getDataPath('users') . 'userPermissions.json';
+    if (file_exists($permissionsFile)) {
+        $content = file_get_contents($permissionsFile);
+        $decrypted = decryptData($content, $encryptionKey);
+        $json = ($decrypted !== false) ? $decrypted : $content;
+        $perms = json_decode($json, true);
+        if (is_array($perms) && isset($perms[$username])) {
+            return !empty($perms[$username]) ? $perms[$username] : false;
+        }
+    }
+    return false;
+}
+
 // Initialize when included
-initializeSharedHosting(); 
+initializeSharedHosting();
+initializeSession(); 

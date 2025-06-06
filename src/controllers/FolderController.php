@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/../../config/config.php';
 require_once PROJECT_ROOT . '/src/models/FolderModel.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class FolderController
 {
@@ -1085,7 +1086,7 @@ class FolderController
     public function getAllShareFolderLinks(): void
     {
         header('Content-Type: application/json');
-        $shareFile = META_DIR . 'share_folder_links.json';
+        $shareFile = PathResolver::resolve('metadata') . 'share_folder_links.json';
         $links     = file_exists($shareFile)
             ? json_decode(file_get_contents($shareFile), true) ?? []
             : [];

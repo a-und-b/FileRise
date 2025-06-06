@@ -1,7 +1,7 @@
 <?php
 // src/models/FileModel.php
 
-require_once PROJECT_ROOT . '/config/config.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class FileModel {
 
@@ -15,7 +15,7 @@ class FileModel {
      */
     public static function copyFiles($sourceFolder, $destinationFolder, $files) {
         $errors = [];
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         
         // Build source and destination directories.
         $sourceDir = ($sourceFolder === 'root')
@@ -89,10 +89,11 @@ class FileModel {
      * @return string
      */
     private static function getMetadataFilePath($folder) {
+        $metaDir = PathResolver::resolve('metadata');
         if (strtolower($folder) === 'root' || trim($folder) === '') {
-            return META_DIR . "root_metadata.json";
+            return $metaDir . "root_metadata.json";
         }
-        return META_DIR . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
+        return $metaDir . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
     }
 
     /**
@@ -130,7 +131,7 @@ class FileModel {
      */
     public static function deleteFiles($folder, $files) {
         $errors = [];
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         
         // Determine the upload directory.
         $uploadDir = ($folder === 'root')
@@ -138,7 +139,7 @@ class FileModel {
             : $baseDir . DIRECTORY_SEPARATOR . trim($folder, "/\\ ") . DIRECTORY_SEPARATOR;
         
         // Setup the Trash folder and metadata.
-        $trashDir = rtrim(TRASH_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $trashDir = rtrim(PathResolver::resolve('trash'), '/\\') . DIRECTORY_SEPARATOR;
         if (!file_exists($trashDir)) {
             mkdir($trashDir, 0755, true);
         }
@@ -237,7 +238,7 @@ class FileModel {
      */
     public static function moveFiles($sourceFolder, $destinationFolder, $files) {
         $errors = [];
-        $baseDir = rtrim(UPLOAD_DIR, '/\\');
+        $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
         
         // Build source and destination directories.
         $sourceDir = ($sourceFolder === 'root')
@@ -336,9 +337,10 @@ class FileModel {
      */
     public static function renameFile($folder, $oldName, $newName) {
         // Determine the directory path.
+        $uploadDir = PathResolver::resolve('uploads');
         $directory = ($folder !== 'root')
-            ? rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ") . DIRECTORY_SEPARATOR
-            : UPLOAD_DIR;
+            ? rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ") . DIRECTORY_SEPARATOR
+            : $uploadDir;
         
         // Sanitize file names.
         $oldName = basename(trim($oldName));
@@ -367,7 +369,7 @@ class FileModel {
         if (rename($oldPath, $newPath)) {
             // Update the metadata file.
             $metadataKey = ($folder === 'root') ? "root" : $folder;
-            $metadataFile = META_DIR . str_replace(['/', '\\', ' '], '-', trim($metadataKey)) . '_metadata.json';
+            $metadataFile = PathResolver::resolve('metadata') . str_replace(['/', '\\', ' '], '-', trim($metadataKey)) . '_metadata.json';
     
             if (file_exists($metadataFile)) {
                 $metadata = json_decode(file_get_contents($metadataFile), true);
@@ -384,7 +386,7 @@ class FileModel {
     }
 
 /*
- * Save a file’s contents *and* record its metadata, including who uploaded it.
+ * Save a file's contents *and* record its metadata, including who uploaded it.
  *
  * @param string                $folder    Folder key (e.g. "root" or "invoices/2025")
  * @param string                $fileName  Basename of the file
@@ -403,7 +405,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
     }
 
     // Determine target directory
-    $baseDir = rtrim(UPLOAD_DIR, '/\\');
+    $baseDir = rtrim(PathResolver::resolve('uploads'), '/\\');
     $targetDir = strtolower($folder) === 'root'
         ? $baseDir . DIRECTORY_SEPARATOR
         : $baseDir . DIRECTORY_SEPARATOR . trim($folder, "/\\ ") . DIRECTORY_SEPARATOR;
@@ -437,7 +439,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
     // ——— UPDATE METADATA ———
     $metadataKey      = strtolower($folder) === "root" ? "root" : $folder;
     $metadataFileName = str_replace(['/', '\\', ' '], '-', trim($metadataKey)) . '_metadata.json';
-    $metadataFilePath = META_DIR . $metadataFileName;
+    $metadataFilePath = PathResolver::resolve('metadata') . $metadataFileName;
 
     // Load existing metadata
     $metadata = [];
@@ -488,7 +490,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         }
         
         // Determine the real upload directory.
-        $uploadDirReal = realpath(UPLOAD_DIR);
+        $uploadDirReal = realpath(PathResolver::resolve('uploads'));
         if ($uploadDirReal === false) {
             return ["error" => "Server misconfiguration."];
         }
@@ -501,7 +503,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
             if (strpos($folder, '..') !== false) {
                 return ["error" => "Invalid folder name."];
             }
-            $directoryPath = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ");
+            $directoryPath = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ");
             $directory = realpath($directoryPath);
             if ($directory === false || strpos($directory, $uploadDirReal) !== 0) {
                 return ["error" => "Invalid folder path."];
@@ -538,7 +540,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
     public static function createZipArchive($folder, $files) {
         // Validate and build folder path.
         $folder = trim($folder) ?: 'root';
-        $baseDir = realpath(UPLOAD_DIR);
+        $baseDir = realpath(PathResolver::resolve('uploads'));
         if ($baseDir === false) {
             return ["error" => "Uploads directory not configured correctly."];
         }
@@ -549,7 +551,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
             if (strpos($folder, '..') !== false) {
                 return ["error" => "Invalid folder name."];
             }
-            $folderPath = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ");
+            $folderPath = rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . trim($folder, "/\\ ");
             $folderPathReal = realpath($folderPath);
             if ($folderPathReal === false || strpos($folderPathReal, $baseDir) !== 0) {
                 return ["error" => "Folder not found."];
@@ -604,7 +606,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         $extractedFiles = [];
         
         // Determine the base upload directory and build the folder path.
-        $baseDir = realpath(UPLOAD_DIR);
+        $baseDir = realpath(PathResolver::resolve('uploads'));
         if ($baseDir === false) {
             return ["error" => "Uploads directory not configured correctly."];
         }
@@ -715,7 +717,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
      * @return array|null Returns the share record as an associative array, or null if not found.
      */
     public static function getShareRecord($token) {
-        $shareFile = META_DIR . "share_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_links.json";
         if (!file_exists($shareFile)) {
             return null;
         }
@@ -752,7 +754,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         $hashedPassword = !empty($password) ? password_hash($password, PASSWORD_DEFAULT) : "";
         
         // File to store share links.
-        $shareFile = META_DIR . "share_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_links.json";
         $shareLinks = [];
         if (file_exists($shareFile)) {
             $data = file_get_contents($shareFile);
@@ -792,7 +794,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
      * @return array An array of trash items.
      */
     public static function getTrashItems() {
-        $trashDir = rtrim(TRASH_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $trashDir = rtrim(PathResolver::resolve('trash'), '/\\') . DIRECTORY_SEPARATOR;
         $trashMetadataFile = $trashDir . "trash.json";
         $trashItems = [];
         if (file_exists($trashMetadataFile)) {
@@ -846,7 +848,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         $restoredItems = [];
         
         // Setup Trash directory and trash metadata file.
-        $trashDir = rtrim(TRASH_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $trashDir = rtrim(PathResolver::resolve('trash'), '/\\') . DIRECTORY_SEPARATOR;
         if (!file_exists($trashDir)) {
             mkdir($trashDir, 0755, true);
         }
@@ -862,10 +864,11 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         
         // Helper to get metadata file path for a folder.
         $getMetadataFilePath = function($folder) {
+            $metaDir = PathResolver::resolve('metadata');
             if (strtolower($folder) === 'root' || trim($folder) === '') {
-                return META_DIR . "root_metadata.json";
+                return $metaDir . "root_metadata.json";
             }
-            return META_DIR . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
+            return $metaDir . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
         };
         
         // Process each provided trash file name.
@@ -900,8 +903,9 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
             
             // Convert absolute original folder to relative folder.
             $relativeFolder = 'root';
-            if (strpos($originalFolder, UPLOAD_DIR) === 0) {
-                $relativeFolder = trim(substr($originalFolder, strlen(UPLOAD_DIR)), '/\\');
+            $uploadDir = PathResolver::resolve('uploads');
+            if (strpos($originalFolder, $uploadDir) === 0) {
+                $relativeFolder = trim(substr($originalFolder, strlen($uploadDir)), '/\\');
                 if ($relativeFolder === '') {
                     $relativeFolder = 'root';
                 }
@@ -909,8 +913,8 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
             
             // Build destination path.
             $destinationPath = (strtolower($relativeFolder) !== 'root')
-                ? rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $relativeFolder . DIRECTORY_SEPARATOR . $originalName
-                : rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $originalName;
+                ? rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $relativeFolder . DIRECTORY_SEPARATOR . $originalName
+                : rtrim(PathResolver::resolve('uploads'), '/\\') . DIRECTORY_SEPARATOR . $originalName;
             
             // Handle folder-type records if necessary.
             if (isset($record['type']) && $record['type'] === 'folder') {
@@ -991,7 +995,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
      */
     public static function deleteTrashFiles(array $filesToDelete) {
         // Setup trash directory and metadata file.
-        $trashDir = rtrim(TRASH_DIR, '/\\') . DIRECTORY_SEPARATOR;
+        $trashDir = rtrim(PathResolver::resolve('trash'), '/\\') . DIRECTORY_SEPARATOR;
         if (!file_exists($trashDir)) {
             mkdir($trashDir, 0755, true);
         }
@@ -1060,7 +1064,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
      * @return array An array of tags. Returns an empty array if the file doesn't exist or is not readable.
      */
     public static function getFileTags(): array {
-        $metadataPath = META_DIR . 'createdTags.json';
+        $metadataPath = PathResolver::resolve('metadata') . 'createdTags.json';
         
         // Check if the metadata file exists and is readable.
         if (!file_exists($metadataPath) || !is_readable($metadataPath)) {
@@ -1097,11 +1101,12 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
     public static function saveFileTag(string $folder, string $file, array $tags, bool $deleteGlobal = false, ?string $tagToDelete = null): array {
         // Determine the folder metadata file.
         $folder = trim($folder) ?: 'root';
+        $metaDir = PathResolver::resolve('metadata');
         $metadataFile = "";
         if (strtolower($folder) === "root") {
-            $metadataFile = META_DIR . "root_metadata.json";
+            $metadataFile = $metaDir . "root_metadata.json";
         } else {
-            $metadataFile = META_DIR . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
+            $metadataFile = $metaDir . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
         }
         
         // Load existing metadata for this folder.
@@ -1121,7 +1126,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         }
         
         // Now update the global tags file.
-        $globalTagsFile = META_DIR . "createdTags.json";
+        $globalTagsFile = PathResolver::resolve('metadata') . "createdTags.json";
         $globalTags = [];
         if (file_exists($globalTagsFile)) {
             $globalTags = json_decode(file_get_contents($globalTagsFile), true) ?? [];
@@ -1168,11 +1173,12 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
      */
     public static function getFileList(string $folder): array {
         $folder = trim($folder) ?: 'root';
+        $uploadDir = PathResolver::resolve('uploads');
         // Determine the target directory.
         if (strtolower($folder) !== 'root') {
-            $directory = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . $folder;
+            $directory = rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . $folder;
         } else {
-            $directory = UPLOAD_DIR;
+            $directory = $uploadDir;
         }
         
         // Validate folder.
@@ -1182,10 +1188,11 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         
         // Helper: Build the metadata file path.
         $getMetadataFilePath = function(string $folder): string {
+            $metaDir = PathResolver::resolve('metadata');
             if (strtolower($folder) === 'root' || trim($folder) === '') {
-                return META_DIR . "root_metadata.json";
+                return $metaDir . "root_metadata.json";
             }
-            return META_DIR . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
+            return $metaDir . str_replace(['/', '\\', ' '], '-', trim($folder)) . '_metadata.json';
         };
         $metadataFile = $getMetadataFilePath($folder);
         $metadata = file_exists($metadataFile) ? json_decode(file_get_contents($metadataFile), true) : [];
@@ -1248,7 +1255,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         }
         
         // Load global tags.
-        $globalTagsFile = META_DIR . "createdTags.json";
+        $globalTagsFile = PathResolver::resolve('metadata') . "createdTags.json";
         $globalTags = file_exists($globalTagsFile) ? json_decode(file_get_contents($globalTagsFile), true) : [];
         
         return ["files" => $fileList, "globalTags" => $globalTags];
@@ -1256,7 +1263,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
 
     public static function getAllShareLinks(): array
     {
-        $shareFile = META_DIR . "share_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_links.json";
         if (!file_exists($shareFile)) {
             return [];
         }
@@ -1266,7 +1273,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
 
     public static function deleteShareLink(string $token): bool
     {
-        $shareFile = META_DIR . "share_links.json";
+        $shareFile = PathResolver::resolve('metadata') . "share_links.json";
         if (!file_exists($shareFile)) {
             return false;
         }
@@ -1295,9 +1302,10 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         }
 
         // 2) build target path
-        $base = UPLOAD_DIR;
+        $uploadDir = PathResolver::resolve('uploads');
+        $base = $uploadDir;
         if ($folder !== 'root') {
-            $base = rtrim(UPLOAD_DIR, '/\\')
+            $base = rtrim($uploadDir, '/\\')
                   . DIRECTORY_SEPARATOR . $folder
                   . DIRECTORY_SEPARATOR;
         }
@@ -1319,7 +1327,7 @@ public static function saveFile(string $folder, string $fileName, $content, ?str
         // 5) write metadata
         $metaKey  = ($folder === 'root') ? 'root' : $folder;
         $metaName = str_replace(['/', '\\', ' '], '-', $metaKey) . '_metadata.json';
-        $metaPath = META_DIR . $metaName;
+        $metaPath = PathResolver::resolve('metadata') . $metaName;
 
         $collection = [];
         if (file_exists($metaPath)) {

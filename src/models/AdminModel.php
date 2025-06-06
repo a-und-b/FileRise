@@ -1,7 +1,7 @@
 <?php
 // src/models/AdminModel.php
 
-require_once PROJECT_ROOT . '/config/config.php';
+require_once PROJECT_ROOT . '/src/SharedHosting/PathResolver.php';
 
 class AdminModel
 {
@@ -98,7 +98,7 @@ class AdminModel
         }
 
         // Define the configuration file path.
-        $configFile = USERS_DIR . 'adminConfig.json';
+        $configFile = PathResolver::resolve('users_dir') . 'adminConfig.json';
 
         // Attempt to write the new configuration.
         if (file_put_contents($configFile, $encryptedContent, LOCK_EX) === false) {
@@ -122,7 +122,7 @@ class AdminModel
      */
     public static function getConfig(): array
     {
-        $configFile = USERS_DIR . 'adminConfig.json';
+        $configFile = PathResolver::resolve('users_dir') . 'adminConfig.json';
         if (file_exists($configFile)) {
             $encryptedContent = file_get_contents($configFile);
             $decryptedContent = decryptData($encryptedContent, $GLOBALS['encryptionKey']);
